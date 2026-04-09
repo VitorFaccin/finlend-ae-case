@@ -7,13 +7,14 @@ models:
       Use esta tabela para responder perguntas sobre volume de vendas, receita líquida e taxas
       por merchant. Dados de teste já excluídos. Deduplicação de settlements já aplicada.
       ATENÇÃO: para faturamento da empresa, use revenue_impact — não amount_brl.
-    meta:
-      semantic_entity: "transaction"
-      primary_key: "transaction_id"
-      grain: "uma linha por transação financeira"
-      business_domain: "finance"
-      owner: "@analytics_team"
-      ai_priority: 1
+    config:
+      meta:
+        semantic_entity: "transaction"
+        primary_key: "transaction_id"
+        grain: "uma linha por transação financeira"
+        business_domain: "finance"
+        owner: "@analytics_team"
+        ai_priority: 1
     tests:
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
@@ -172,13 +173,14 @@ models:
       Use para perguntas sobre performance por merchant (taxa de chargeback, receita total, etc.).
       ATENÇÃO: chargeback_rate é um ratio pré-calculado — não re-agregar com SUM() ou AVG().
       Para análise temporal por merchant, use revenue_report com GROUP BY.
-    meta:
-      semantic_entity: "merchant_kpi"
-      primary_key: "merchant_id"
-      grain: "uma linha por merchant_id, período total"
-      business_domain: "finance"
-      owner: "@analytics_team"
-      ai_priority: 2
+    config:
+      meta:
+        semantic_entity: "merchant_kpi"
+        primary_key: "merchant_id"
+        grain: "uma linha por merchant_id, período total"
+        business_domain: "finance"
+        owner: "@analytics_team"
+        ai_priority: 2
     columns:
       - name: merchant_id
         description: "Identificador único do lojista (chave primária desta tabela)"

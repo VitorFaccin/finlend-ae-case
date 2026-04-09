@@ -243,6 +243,8 @@ models/
 │   ├── schema.yml                       # meta tags ricas para IA
 │   ├── revenue_report.sql               # incremental + clustered
 │   └── merchant_summary.sql             # SAFE_DIVIDE corrigido
+├── metricflow_time_spine.sql            # tabela de datas obrigatória para o MetricFlow
+├── metricflow_time_spine.yml            # declara o modelo como time spine (granularity: day)
 └── semantic_layer.yml                   # MetricFlow: métricas como código
 tests/
 ├── assert_revenue_impact_sign_is_correct.sql
@@ -300,6 +302,11 @@ a sintaxe do dbt Semantic Layer (MetricFlow). Em produção, o agente não escre
 enviaria uma requisição à API do dbt: `metric: net_revenue, dimension: merchant_name, grain: month`.
 O MetricFlow geraria o SQL otimizado, garantindo que o número da IA seja **idêntico** ao número
 do dashboard do CFO, pois ambos bebem da mesma definição de métrica.
+
+O arquivo `metricflow_time_spine.sql` é um requisito obrigatório do MetricFlow: uma tabela com
+uma linha por dia (2020 até hoje), equivalente a uma `dim_date` clássica. O MetricFlow usa essa
+tabela internamente para alinhar métricas por grão temporal (dia, semana, mês) sem que o analista
+precise escrever `DATE_TRUNC` ou `GENERATE_DATE_ARRAY` em cada query.
 
 | Característica | Nível 1 (schema.yml) | Nível 2 (MetricFlow) |
 |---|---|---|
