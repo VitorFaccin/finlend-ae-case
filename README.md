@@ -335,9 +335,32 @@ qualquer regressão futura passaria despercebida exatamente como os bugs origina
 
 ### Uso de IA
 
-O Gemini foi usado como parceiro de brainstorming para a estratégia geral. Ele acertou a direção
-principal (incremental, intermediate layer, meta tags para IA) mas produziu erros que precisaram
-de correção manual, já que ele considerou um cenário ideal que não há erros e inconsistências:
+O processo de desenvolvimento usou duas ferramentas de IA em etapas distintas, com papéis
+complementares: Gemini para design e estratégia, Claude Code para implementação e refinamento técnico.
+
+---
+
+#### Gemini — Design e Estratégia
+
+A interação com o Gemini não foi "gerar código e aceitar". A estratégia foi iterativa:
+
+1. **Levantar ideias próprias primeiro** — princípios de design (Domain-Driven Design, desacoplamento
+   de camadas, estrutura substituível), requisitos de testabilidade e separação de responsabilidades
+   foram definidos antes de consultar o modelo.
+
+2. **Pesquisar padrões de mercado externamente** — para cada decisão arquitetural, o padrão foi
+   buscar referências de como líderes de mercado resolvem o mesmo problema (dbt Labs best practices,
+   engenharia de dados em escala), e voltar ao Gemini com esse contexto para entender funcionamento,
+   trade-offs e como adaptar ao cenário específico da FinLend.
+
+3. **Dirigir o design, não aceitar o design** — o Gemini foi instruído explicitamente a sempre
+   orientar as propostas para: foco em domínio de negócio, testes unitários, desacoplamento de
+   etapas, e arquitetura onde cada componente pode ser substituído de forma independente. O resultado
+   foi um brainstorming estruturado, não uma entrega passiva.
+
+O Gemini acertou a direção geral (incremental, intermediate layer, meta tags para IA, semantic layer)
+e contribuiu com práticas que o próprio contexto de pesquisa trouxe à tona. Mas produziu erros que
+exigiram correção manual — em parte porque tendeu a assumir um cenário ideal sem dados inconsistentes:
 
 **1. Nunca identificou a divisão inteira em `chargeback_rate`**
 O Gemini discutiu melhorias na métrica de chargeback, sugeriu documentação e meta tags — mas
@@ -349,8 +372,8 @@ por conhecimento semântico do dialeto BigQuery. Identificado manualmente na rev
 O Gemini sugeriu usar `WHERE t.updated_at >= (SELECT MAX(updated_at) FROM {{ this }})` como
 filtro incremental. O problema: `updated_at` reflete quando a *transação* foi atualizada, não
 quando o *settlement* chegou. Um settlement para uma transação de 2 semanas atrás chegando hoje
-seria ignorado completamente por esse filtro. Corrigido para um lookback baseado em data:
-`DATE(t.created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY)`.
+seria ignorado completamente por esse filtro. Corrigido para um lookback baseado em data com
+filtro duplo (`created_at OR settlement_date >= lookback`) para capturar os dois cenários.
 
 **3. Nomenclatura incorreta: `dim_merchants`**
 O Gemini renomeou `merchant_summary` para `dim_merchants`. Em modelagem dimensional, `dim_`
@@ -362,15 +385,53 @@ que é uma tabela de lookup, não de métricas. Mantido como `merchant_summary`.
 **4. Teste de negócio matematicamente incorreto**
 O Gemini propôs `WHERE ABS(revenue_impact) > amount_brl` como teste de consistência de receita.
 Para um estorno corretamente calculado: `revenue_impact = -amount_brl`, portanto
-`ABS(-amount_brl) = amount_brl` — a condição `ABS(revenue_impact) > amount_brl` nunca se torna
-verdadeira para dados válidos. O teste passaria mesmo com lógica de sinal completamente quebrada.
-Reescrito para validar o sinal por status: `captured` deve ter `revenue_impact > 0`,
-`refunded`/`chargeback` devem ter `revenue_impact < 0`.
+`ABS(-amount_brl) = amount_brl` — a condição nunca se torna verdadeira para dados válidos.
+O teste passaria mesmo com lógica de sinal completamente quebrada. Reescrito para validar o
+sinal por status: `captured` deve ter `revenue_impact > 0`, `refunded`/`chargeback` devem ter
+`revenue_impact < 0`.
 
 **5. `rn` vazando para o output do mart (não identificado)**
 O `SELECT *` com `QUALIFY rn = 1` expõe a coluna `rn` (artefato interno de ROW_NUMBER) no output
 final do mart. O Gemini nunca mencionou isso. Corrigido com `SELECT * EXCEPT (rn)` na
 intermediate, eliminando o campo antes de chegar ao mart.
+
+---
+
+#### Claude Code — Implementação e Refinamento Técnico
+
+O plano consolidado junto ao Gemini foi passado ao Claude Code para implementação. A experiência
+revelou pontos onde a execução é mais difícil do que o design sugere:
+
+**Obs inicial:**
+Sempre subo alguns arquivos pré feitos .md de boas_praticas_codigo, para dags por exemplo dag_structure, architecture_structure e por aí vai, as quais peço para o claude aplicar quando for gerar meu código, facilita a debugar, pois escreve o código do jeito que eu escrevo e na estrutura que eu utilizo.
+
+**Dificuldades iniciais de interpretação:**
+Mesmo com a ideia de desacoplamento e arquitetura orientada a domínio bem definida no plano,
+a tradução para código gerou ambiguidades iniciais — onde exatamente cada responsabilidade
+termina, como nomear fronteiras entre camadas, e como estruturar os `ref()` para que o grafo
+de dependências refletisse o design intencional.
+
+**Complicação com o incremental:**
+A parte mais trabalhosa foi a estratégia de processamento incremental. O plano previa evitar
+reprocessamento massivo a cada execução, mas a implementação inicial não capturava o cenário
+de settlements tardios (transação antiga recebendo um lote de liquidação novo). O filtro
+incremental correto com janela dupla (`created_at OR settlement_date >= lookback`) foi montado
+manualmente, iterando sobre os cenários de borda até cobrir todos os casos.
+
+**Contribuição técnica do Claude Code:**
+Dois refinamentos emergiram durante a implementação que não estavam no plano original:
+
+- **Configuração centralizada no `dbt_project.yml`:** ao invés de repetir `{{ config(materialized=...) }}`
+  em cada modelo de staging e intermediate, o padrão foi centralizar as configurações padrão por
+  camada no `dbt_project.yml` (`staging: +materialized: view`, `marts: +materialized: table`).
+  Os modelos individuais só precisam de `{{ config(...) }}` quando fogem do padrão da camada —
+  como os modelos incrementais nos marts.
+
+- **Views como camada de passagem para o incremental:** a ideia de deixar staging e intermediate
+  como views (sem materialização) e concentrar o processamento incremental apenas nos marts
+  (`revenue_report`) e na `int_transactions_settled` simplificou o design. O BigQuery executa
+  as views em cadeia com o filtro incremental aplicado nas tabelas raw particionadas — sem criar
+  tabelas intermediárias desnecessárias, sem duplicar estratégias de lookback em cada camada.
 
 ---
 
