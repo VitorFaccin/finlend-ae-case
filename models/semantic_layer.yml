@@ -35,22 +35,27 @@ semantic_models:
         description: "Soma do impacto líquido na receita (positivo para vendas, negativo para estornos)"
         expr: revenue_impact
         agg: sum
+        agg_time_dimension: transaction_date
       - name: amount_brl_sum
         description: "Soma do valor bruto das transações (GMV)"
         expr: amount_brl
         agg: sum
+        agg_time_dimension: transaction_date
       - name: fee_amount_sum
         description: "Soma das taxas retidas pela FinLend"
         expr: fee_amount
         agg: sum
+        agg_time_dimension: transaction_date
       - name: transaction_count
         description: "Contagem de transações únicas"
         expr: "1"
         agg: count
+        agg_time_dimension: transaction_date
       - name: chargeback_count
         description: "Contagem de transações com chargeback"
         expr: "CASE WHEN status = 'chargeback' THEN 1 ELSE 0 END"
         agg: sum
+        agg_time_dimension: transaction_date
 
 metrics:
   - name: net_revenue
