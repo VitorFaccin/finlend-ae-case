@@ -78,14 +78,27 @@ metrics:
     type_params:
       measure: fee_amount_sum
 
+  - name: total_transactions
+    label: "Total de Transações"
+    description: "Contagem total de transações processadas (captured + refunded + chargeback)"
+    type: simple
+    type_params:
+      measure: transaction_count
+
+  - name: chargeback_volume
+    label: "Volume de Chargebacks"
+    description: "Contagem de transações que resultaram em chargeback"
+    type: simple
+    type_params:
+      measure: chargeback_count
+
   - name: chargeback_rate
     label: "Taxa de Chargeback"
     description: >
       Percentual de transações que resultaram em chargeback.
       Retorna um valor entre 0 e 1 (ex: 0.034 = 3,4%).
+      Ratio entre chargeback_volume e total_transactions.
     type: ratio
     type_params:
-      numerator:
-        name: chargeback_count
-      denominator:
-        name: transaction_count
+      numerator: chargeback_volume
+      denominator: total_transactions

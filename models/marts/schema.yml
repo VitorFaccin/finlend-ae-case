@@ -15,53 +15,58 @@ models:
       owner: "@analytics_team"
       ai_priority: 1
     tests:
-      # A tabela não pode estar vazia — sinaliza falha no pipeline antes de chegar ao dashboard
       - dbt_expectations.expect_table_row_count_to_be_between:
-          min_value: 1
+          arguments:
+            min_value: 1
     columns:
       - name: transaction_id
         description: "Chave primária. Use COUNT(DISTINCT transaction_id) para contar transações únicas."
+        config:
+          meta:
+            is_primary_key: true
         tests:
           - unique
           - not_null
-        meta:
-          is_primary_key: true
 
       - name: merchant_id
         description: "Identificador do lojista. Use para filtrar por cliente específico."
+        config:
+          meta:
+            is_dimension: true
+            relationship: "many_to_one → stg_merchants"
         tests:
           - not_null
-        meta:
-          is_dimension: true
-          relationship: "many_to_one → stg_merchants"
 
       - name: merchant_name
         description: "Nome fantasia do lojista. Equivale a merchant_id para filtros por nome."
-        meta:
-          is_dimension: true
-          synonyms: ["nome do lojista", "loja", "nome da empresa", "nome do merchant"]
+        config:
+          meta:
+            is_dimension: true
+            synonyms: ["nome do lojista", "loja", "nome da empresa", "nome do merchant"]
 
       - name: mcc_code
         description: "Merchant Category Code (ISO 18245). Use para segmentar por categoria de negócio."
-        meta:
-          is_dimension: true
+        config:
+          meta:
+            is_dimension: true
 
       - name: amount_brl
         description: >
           Valor BRUTO da transação em Reais (BRL). Representa o GMV (Gross Merchandise Value).
           Use para perguntas sobre 'volume transacionado' ou 'quanto foi movimentado'.
           NÃO use para calcular faturamento da empresa — use revenue_impact.
+        config:
+          meta:
+            is_measure: true
+            agg: "sum"
+            unit: "BRL"
+            synonyms: ["volume", "GMV", "valor bruto", "gross value", "valor transacionado"]
         tests:
           - not_null
-          # Valor de transação nunca pode ser zero ou negativo na origem
           - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0.01
-              strictly: false
-        meta:
-          is_measure: true
-          agg: "sum"
-          unit: "BRL"
-          synonyms: ["volume", "GMV", "valor bruto", "gross value", "valor transacionado"]
+              arguments:
+                min_value: 0.01
+                strictly: false
 
       - name: revenue_impact
         description: >
@@ -69,87 +74,97 @@ models:
           Positivo para 'captured' (+amount_brl), negativo para 'refunded' e 'chargeback' (-amount_brl).
           SEMPRE use este campo para responder 'quanto a empresa faturou?' ou 'qual a receita?'.
           Pode ser NULL para transações sem settlement registrado.
-        meta:
-          is_measure: true
-          agg: "sum"
-          unit: "BRL"
-          synonyms: ["faturamento", "receita líquida", "receita real", "net revenue", "receita", "quanto faturou"]
-          sign_logic: "captured=positivo, refunded=negativo, chargeback=negativo"
+        config:
+          meta:
+            is_measure: true
+            agg: "sum"
+            unit: "BRL"
+            synonyms: ["faturamento", "receita líquida", "receita real", "net revenue", "receita", "quanto faturou"]
+            sign_logic: "captured=positivo, refunded=negativo, chargeback=negativo"
 
       - name: fee_amount
         description: >
           Taxa cobrada pela FinLend sobre a transação, em Reais (BRL).
           Este campo representa a RECEITA DA FINLEND — o que a empresa retém após repassar ao merchant.
           Para 'quanto a FinLend faturou em taxas', use SUM(fee_amount).
-        meta:
-          is_measure: true
-          agg: "sum"
-          unit: "BRL"
-          synonyms: ["taxa", "fee", "comissão FinLend", "receita de taxas", "MDR"]
+        config:
+          meta:
+            is_measure: true
+            agg: "sum"
+            unit: "BRL"
+            synonyms: ["taxa", "fee", "comissão FinLend", "receita de taxas", "MDR"]
 
       - name: status
         description: >
           Status atual da transação. Status 'test' e 'pending' já foram removidos na staging.
           Valores possíveis nesta tabela: captured, refunded, chargeback.
+        config:
+          meta:
+            is_dimension: true
+            enum: ['captured', 'refunded', 'chargeback']
+            note: "Status 'test' e demais inválidos são filtrados antes desta camada"
         tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['captured', 'refunded', 'chargeback']
-        meta:
-          is_dimension: true
-          enum: ['captured', 'refunded', 'chargeback']
-          note: "Status 'test' e demais inválidos são filtrados antes desta camada"
 
       - name: payment_method
         description: "Método de pagamento. Use para filtrar por modalidade (ex: WHERE payment_method = 'pix')."
-        meta:
-          is_dimension: true
-          synonyms: ["meio de pagamento", "tipo de pagamento", "modalidade", "pix", "cartão de crédito"]
-          enum: ['pix', 'credit_card', 'debit_card', 'boleto']
+        config:
+          meta:
+            is_dimension: true
+            synonyms: ["meio de pagamento", "tipo de pagamento", "modalidade", "pix", "cartão de crédito"]
+            enum: ['pix', 'credit_card', 'debit_card', 'boleto']
 
       - name: transaction_date
         description: >
           Data da transação em formato DATE (fuso UTC).
           Use este campo para todos os filtros temporais ('último mês', 'esse trimestre', 'última semana').
           Para horário de Brasília, subtrair 3 horas do created_at.
+        config:
+          meta:
+            is_dimension: true
+            type: "date"
+            timezone: "UTC"
         tests:
           - not_null
-        meta:
-          is_dimension: true
-          type: "date"
-          timezone: "UTC"
 
       - name: created_at
         description: "Timestamp completo da criação da transação (TIMESTAMP, UTC)"
-        meta:
-          type: "timestamp"
-          timezone: "UTC"
+        config:
+          meta:
+            type: "timestamp"
+            timezone: "UTC"
 
       - name: net_amount
         description: >
           Valor líquido do settlement em BRL (após dedução de taxas).
           Diferente de revenue_impact: vem da tabela de settlements e pode ser NULL
           para transações ainda não liquidadas.
-        meta:
-          is_measure: true
-          agg: "sum"
-          unit: "BRL"
+        config:
+          meta:
+            is_measure: true
+            agg: "sum"
+            unit: "BRL"
 
       - name: settlement_id
         description: "Identificador do lote de liquidação. NULL para transações ainda não liquidadas."
-        meta:
-          is_dimension: true
+        config:
+          meta:
+            is_dimension: true
 
       - name: settlement_date
         description: "Data em que o settlement foi gerado pelo financeiro"
-        meta:
-          type: "date"
+        config:
+          meta:
+            type: "date"
 
       - name: paid_at
         description: "Timestamp em que o pagamento do settlement foi efetivado"
-        meta:
-          type: "timestamp"
+        config:
+          meta:
+            type: "timestamp"
 
   - name: merchant_summary
     description: >
@@ -167,72 +182,82 @@ models:
     columns:
       - name: merchant_id
         description: "Identificador único do lojista (chave primária desta tabela)"
+        config:
+          meta:
+            is_primary_key: true
         tests:
           - unique
           - not_null
-        meta:
-          is_primary_key: true
 
       - name: merchant_name
         description: "Nome fantasia do lojista"
-        meta:
-          is_dimension: true
-          synonyms: ["nome do lojista", "loja", "nome da empresa"]
+        config:
+          meta:
+            is_dimension: true
+            synonyms: ["nome do lojista", "loja", "nome da empresa"]
 
       - name: mcc_code
         description: "Merchant Category Code (ISO 18245)"
-        meta:
-          is_dimension: true
+        config:
+          meta:
+            is_dimension: true
 
       - name: total_transactions
         description: "Número total de transações processadas (captured + refunded + chargeback)"
-        meta:
-          is_measure: true
-          agg: "sum"
+        config:
+          meta:
+            is_measure: true
+            agg: "sum"
 
       - name: total_revenue
         description: "Receita líquida acumulada do merchant (soma de revenue_impact)"
-        meta:
-          is_measure: true
-          agg: "sum"
-          unit: "BRL"
-          synonyms: ["receita total", "faturamento total", "total faturado"]
+        config:
+          meta:
+            is_measure: true
+            agg: "sum"
+            unit: "BRL"
+            synonyms: ["receita total", "faturamento total", "total faturado"]
 
       - name: total_fees
         description: "Total de taxas pagas pelo merchant à FinLend"
-        meta:
-          is_measure: true
-          agg: "sum"
-          unit: "BRL"
+        config:
+          meta:
+            is_measure: true
+            agg: "sum"
+            unit: "BRL"
 
       - name: chargebacks
         description: "Número absoluto de chargebacks registrados"
-        meta:
-          is_measure: true
-          agg: "sum"
+        config:
+          meta:
+            is_measure: true
+            agg: "sum"
 
       - name: chargeback_rate
         description: >
           Taxa de chargeback: chargebacks / total_transactions, como FLOAT64 (ex: 0.034 = 3,4%).
           NUNCA use SUM() ou AVG() neste campo — é um ratio pré-computado por merchant.
           Para taxa agregada geral, recalcule a partir do revenue_report.
+        config:
+          meta:
+            is_measure: true
+            agg: "none"
+            unit: "ratio"
+            note: "Ratio pré-calculado. Não re-agregar. Para taxa entre múltiplos merchants, volte ao revenue_report."
         tests:
-          # Taxa de chargeback deve estar entre 0% e 100% — qualquer valor fora indica bug de cálculo
           - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              max_value: 1
-        meta:
-          is_measure: true
-          agg: "none"
-          unit: "ratio"
-          note: "Ratio pré-calculado. Não re-agregar. Para taxa entre múltiplos merchants, volte ao revenue_report."
+              arguments:
+                min_value: 0
+                max_value: 1
 
       - name: first_transaction
         description: "Data da transação mais antiga registrada para este merchant"
-        meta:
-          type: "date"
+        config:
+          meta:
+            type: "date"
 
       - name: last_transaction
         description: "Data da transação mais recente registrada para este merchant"
-        meta:
-          type: "date"
+        config:
+          meta:
+            type: "date"
