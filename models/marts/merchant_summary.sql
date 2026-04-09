@@ -14,4 +14,7 @@ SELECT
     MIN(transaction_date)                                            AS first_transaction,
     MAX(transaction_date)                                            AS last_transaction
 FROM {{ ref('revenue_report') }}
-GROUP BY 1, 2, 3
+GROUP BY
+    merchant_id,
+    merchant_name,
+    mcc_code
