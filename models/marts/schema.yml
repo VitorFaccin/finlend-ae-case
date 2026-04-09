@@ -94,7 +94,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['captured', 'refunded', 'chargeback']
+              arguments:
+                values: ['captured', 'refunded', 'chargeback']
         meta:
           is_dimension: true
           enum: ['captured', 'refunded', 'chargeback']

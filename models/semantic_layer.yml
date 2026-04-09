@@ -85,5 +85,7 @@ metrics:
       Retorna um valor entre 0 e 1 (ex: 0.034 = 3,4%).
     type: ratio
     type_params:
-      numerator: chargeback_count
-      denominator: transaction_count
+      numerator:
+        name: chargeback_count
+      denominator:
+        name: transaction_count

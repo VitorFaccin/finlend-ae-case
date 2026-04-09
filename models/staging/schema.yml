@@ -6,10 +6,11 @@ sources:
     tables:
       - name: transactions
         description: "Tabela raw de transações financeiras do gateway de pagamento"
-        loaded_at_field: updated_at
-        freshness:
-          warn_after: {count: 6, period: hour}
-          error_after: {count: 24, period: hour}
+        config:
+          loaded_at_field: updated_at
+          freshness:
+            warn_after: {count: 6, period: hour}
+            error_after: {count: 24, period: hour}
       - name: merchants
         description: "Cadastro de lojistas (merchants) da FinLend"
       - name: settlements
@@ -53,7 +54,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['captured', 'refunded', 'chargeback', 'pending', 'failed', 'cancelled']
+              arguments:
+                values: ['captured', 'refunded', 'chargeback', 'pending', 'failed', 'cancelled']
 
       - name: payment_method
         description: "Método de pagamento utilizado na transação"
