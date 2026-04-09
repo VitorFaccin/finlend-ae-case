@@ -1,0 +1,74 @@
+name: CI — Validação dbt
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Compilar e validar projeto dbt
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dbt-bigquery
+        run: pip install dbt-bigquery==1.8.0
+
+      - name: Instalar dependências do projeto (dbt deps)
+        run: dbt deps
+
+      - name: Criar keyfile de serviço fictício para compilação
+        # dbt parse não conecta ao banco — apenas compila o projeto.
+        # O keyfile precisa existir como JSON válido, mas as credenciais não são usadas.
+        run: |
+          echo '{
+            "type": "service_account",
+            "project_id": "finlend-ci",
+            "private_key_id": "ci-dummy",
+            "private_key": "",
+            "client_email": "ci@finlend-ci.iam.gserviceaccount.com",
+            "client_id": "000000000000000000000",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token"
+          }' > /tmp/ci-sa.json
+
+      - name: Criar profiles.yml para o ambiente de CI
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << 'EOF'
+          finlend:
+            outputs:
+              dev:
+                type: bigquery
+                method: service-account
+                project: finlend-ci
+                dataset: analytics_dev
+                threads: 1
+                keyfile: /tmp/ci-sa.json
+            target: dev
+          EOF
+
+      - name: Validar sintaxe de todos os modelos (dbt parse)
+        # Compila todo o projeto — YAML, Jinja e SQL — sem conectar ao BigQuery.
+        # Garante que: referências entre modelos estão corretas, testes estão bem
+        # configurados e macros compilam sem erro.
+        run: dbt parse
+
+      - name: Listar modelos do projeto
+        run: dbt ls --profiles-dir ~/.dbt
+
+  # Em produção com credenciais reais, adicionar job:
+  # slim-ci:
+  #   Roda apenas os modelos alterados no PR:
+  #   dbt build --select state:modified+ --defer --state ./target
+  #   Requer: GCP_SA_KEY no GitHub Secrets e artefato de estado de produção.

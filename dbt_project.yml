@@ -1,0 +1,34 @@
+name: 'finlend'
+version: '1.0.0'
+config-version: 2
+
+profile: 'finlend'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  # Quantos dias retroativos reprocessar nos modelos incrementais.
+  # Janela customizada:    dbt run --vars '{"lookback_days": 30}'
+  # Sem filtro (reprocessa tudo sem DROP da tabela):
+  #   dbt run --vars '{"lookback_days": null}'
+  lookback_days: 10
+
+models:
+  finlend:
+    staging:
+      +materialized: view
+      +tags: ["staging"]
+    intermediate:
+      +materialized: view
+      +tags: ["intermediate"]
+    marts:
+      +materialized: table
+      +tags: ["marts"]

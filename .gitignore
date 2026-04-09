@@ -1,0 +1,11 @@
+CLAUDE.md
+gemini_talk_plan.txt
+best_practices.md
+*.pdf
+target/
+dbt_packages/
+logs/
+profiles.yml
+.env
+venv
+tutorial.md

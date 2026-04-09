@@ -1,0 +1,89 @@
+# dbt Semantic Layer (MetricFlow) — requer dbt >= 1.6 e dbt Cloud ou dbt Core com MetricFlow.
+# Para habilitar localmente: pip install dbt-metricflow
+# Estas definições NÃO são executadas pelo dbt run — são consumidas por:
+#   - API do dbt Cloud Semantic Layer (GraphQL/JDBC)
+#   - Ferramentas como Tableau, Hex, Lightdash ou agentes LangChain customizados
+# Para validar a sintaxe sem conexão com banco: dbt parse
+
+semantic_models:
+  - name: transactions_source
+    description: >
+      Modelo semântico baseado em revenue_report. Define as entidades, dimensões e medidas
+      que o dbt Semantic Layer (MetricFlow) expõe via API para agentes de IA e ferramentas de BI.
+      O agente não escreve SQL — ele requisita métricas via API e o MetricFlow gera o SQL otimizado.
+    model: ref('revenue_report')
+    entities:
+      - name: transaction
+        type: primary
+        expr: transaction_id
+      - name: merchant
+        type: foreign
+        expr: merchant_id
+    dimensions:
+      - name: transaction_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: status
+        type: categorical
+      - name: payment_method
+        type: categorical
+      - name: mcc_code
+        type: categorical
+    measures:
+      - name: revenue_impact_sum
+        description: "Soma do impacto líquido na receita (positivo para vendas, negativo para estornos)"
+        expr: revenue_impact
+        agg: sum
+      - name: amount_brl_sum
+        description: "Soma do valor bruto das transações (GMV)"
+        expr: amount_brl
+        agg: sum
+      - name: fee_amount_sum
+        description: "Soma das taxas retidas pela FinLend"
+        expr: fee_amount
+        agg: sum
+      - name: transaction_count
+        description: "Contagem de transações únicas"
+        expr: "1"
+        agg: count
+      - name: chargeback_count
+        description: "Contagem de transações com chargeback"
+        expr: "CASE WHEN status = 'chargeback' THEN 1 ELSE 0 END"
+        agg: sum
+
+metrics:
+  - name: net_revenue
+    label: "Receita Líquida (BRL)"
+    description: >
+      Soma do revenue_impact, considerando vendas, estornos e chargebacks.
+      Use para 'quanto a empresa faturou?'
+    type: simple
+    type_params:
+      measure: revenue_impact_sum
+
+  - name: gross_volume
+    label: "Volume Bruto de Transações (BRL)"
+    description: >
+      Soma do valor bruto das transações (GMV). Use para 'qual foi o volume movimentado?'
+    type: simple
+    type_params:
+      measure: amount_brl_sum
+
+  - name: fee_income
+    label: "Receita de Taxas da FinLend (BRL)"
+    description: >
+      Total de taxas retidas pela FinLend. Use para 'quanto a FinLend faturou em taxas?'
+    type: simple
+    type_params:
+      measure: fee_amount_sum
+
+  - name: chargeback_rate
+    label: "Taxa de Chargeback"
+    description: >
+      Percentual de transações que resultaram em chargeback.
+      Retorna um valor entre 0 e 1 (ex: 0.034 = 3,4%).
+    type: ratio
+    type_params:
+      numerator: chargeback_count
+      denominator: transaction_count

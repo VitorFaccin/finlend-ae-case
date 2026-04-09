@@ -1,0 +1,28 @@
+finlend:
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: seu-gcp-project-id
+      dataset: analytics_dev
+      threads: 4
+      timeout_seconds: 300
+      location: us-central1
+      keyfile: /caminho/para/service-account.json
+
+    prod:
+      type: bigquery
+      method: service-account
+      project: seu-gcp-project-id
+      dataset: analytics_prod
+      threads: 8
+      timeout_seconds: 300
+      location: us-central1
+      keyfile: /caminho/para/service-account.json
+
+  target: dev
+
+# Como usar:
+#   cp profiles.yml.example ~/.dbt/profiles.yml
+#   Preencha o GCP project ID e o caminho do service account.
+#   O arquivo profiles.yml está no .gitignore — nunca commitar credenciais.

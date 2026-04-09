@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: int_transactions_settled
+    description: >
+      Camada de processamento: transações enriquecidas com dados de settlement.
+      Concentra toda a complexidade SQL do projeto — UNNEST do array transaction_ids,
+      LEFT JOIN com settlements e deduplicação por QUALIFY.
+      Não consultar diretamente; use revenue_report para análises de negócio.
+      Uma linha por transaction_id após deduplicação.
+    columns:
+      - name: transaction_id
+        description: "Identificador único da transação (chave primária após deduplicação)"
+        tests:
+          - unique
+          - not_null
