@@ -462,7 +462,7 @@ O plano consolidado junto ao Gemini foi passado ao Claude Code para implementaç
 revelou pontos onde a execução é mais difícil do que o design sugere:
 
 **Obs inicial:**
-Sempre subo alguns arquivos pré feitos .md de boas_praticas_codigo, para dags por exemplo dag_structure, architecture_structure e por aí vai, as quais peço para o claude aplicar quando for gerar meu código, facilita a debugar, pois escreve o código do jeito que eu escrevo e na estrutura que eu utilizo.
+Uma prática adotada foi fornecer arquivos `.md` pré-configurados de boas práticas de código (como `dag_structure`, `architecture_structure`) como contexto inicial para o Claude Code. Essa abordagem orienta a geração de código para a estrutura e convenções do projeto, facilitando o debugging por manter o código gerado nos padrões esperados.
 
 **Dificuldades iniciais de interpretação:**
 Mesmo com a ideia de desacoplamento e arquitetura orientada a domínio bem definida no plano,
@@ -549,4 +549,4 @@ tipicamente reduz o volume processado por execução em 95–99%. O clustering r
 o custo das queries analíticas em 70–90% para filtros comuns (por merchant, por status).
 
 ### Orquestração em Produção
-Tenho um projeto de portfólio que estou construindo end-to-end em desenvolvimento para orquestração de dados que está público no github, está em desenvolvimento necessitando acrescentar etapas, mas já está funcional para clone utilização: https://github.com/VitorFaccin/data-projects-portfolio
+Há um projeto de portfólio meu end-to-end de orquestração de dados está disponível publicamente no GitHub — funcional para clone e uso, com etapas adicionais ainda em desenvolvimento: https://github.com/VitorFaccin/data-projects-portfolio
