@@ -5,7 +5,47 @@
 
 ## Como Executar
 
-**Pré-requisitos:** Python 3.9+, conta GCP com BigQuery, service account com permissão de leitura/escrita nos datasets.
+### Opção 1 — Docker (recomendado)
+
+Pipeline completo em um comando. O Docker orquestra dois serviços em sequência:
+`raw-loader` carrega os dados fake no BigQuery, `dbt` executa o pipeline de transformação.
+
+**Pré-requisitos:** Docker + Docker Compose, conta GCP com BigQuery, service account com roles
+`BigQuery Data Editor` e `BigQuery Job User`.
+
+```bash
+# 1. Configurar variáveis e credenciais
+make init
+# Editar .env com seu GCP_PROJECT_ID
+# Copiar service account: cp /caminho/sa.json credentials/service-account.json
+
+# 2. Pipeline completo: ingestão raw → dbt build (run + test)
+make up
+
+# Comandos individuais
+make seed    # apenas carrega os CSVs no BigQuery (raw-loader)
+make run     # apenas dbt run
+make test    # apenas dbt test
+make docs    # gera e serve documentação em localhost:8080
+make clean   # remove containers e artefatos
+
+# Override direto no container dbt
+docker-compose run --rm dbt run --select stg_transactions
+docker-compose run --rm dbt run --selector finance_pipeline
+docker-compose run --rm dbt run --vars '{"lookback_days": 30}'
+```
+
+Os dados fake em `data/raw/` cobrem os cenários críticos do projeto:
+- 25 transações (19 captured, 2 refunded, 2 chargeback, 2 test a filtrar)
+- T001 em dois settlements — valida a deduplicação do `int_transactions_settled`
+- T020 sem settlement — valida o LEFT JOIN que não descarta a transação
+- 5 merchants com MCC codes reais
+
+---
+
+### Opção 2 — dbt local (sem Docker)
+
+**Pré-requisitos:** Python 3.9+, conta GCP com BigQuery, service account.
 
 ```bash
 # 1. Instalar dbt-bigquery
@@ -32,6 +72,18 @@ dbt run --vars '{"lookback_days": 30}'
 
 # 8. Rebuild completo (útil após mudança de schema)
 dbt run --full-refresh
+```
+
+---
+
+### Opção 3 — Testes unitários locais (sem BigQuery)
+
+Valida a lógica SQL com DuckDB in-memory. Nenhuma credencial necessária.
+
+```bash
+pip install -r requirements-test.txt
+pytest tests/unit/ -v
+# 17 testes em ~0.3s
 ```
 
 ---

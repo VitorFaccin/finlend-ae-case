@@ -1,0 +1,35 @@
+selectors:
+  # Roda apenas a camada de staging (limpeza e cast de tipos)
+  - name: finance_staging
+    description: "Apenas modelos de staging — útil para validar a ingestão raw"
+    definition:
+      method: tag
+      value: staging
+
+  # Roda o pipeline financeiro completo do staging ao mart
+  - name: finance_pipeline
+    description: "Pipeline financeiro completo: staging → intermediate → marts"
+    definition:
+      union:
+        - method: tag
+          value: staging
+        - method: tag
+          value: intermediate
+        - method: tag
+          value: marts
+
+  # Roda apenas os marts (assume staging e intermediate já materializados)
+  - name: marts_only
+    description: "Apenas as tabelas de apresentação — útil para refresh rápido dos marts"
+    definition:
+      method: tag
+      value: marts
+
+# Como usar:
+#   dbt run --selector finance_pipeline
+#   dbt run --selector marts_only
+#   dbt test --selector finance_pipeline
+#
+# Em um orquestrador (Airflow, Prefect, GitHub Actions):
+#   O orquestrador chama 'dbt run --selector finance_pipeline' e não conhece
+#   os modelos individuais — desacoplamento total entre orchestração e lógica dbt.

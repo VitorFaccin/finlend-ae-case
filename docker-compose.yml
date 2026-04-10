@@ -1,0 +1,33 @@
+services:
+
+  # --- Camada 1: Ingestão Raw ---
+  # Simula um conector (Fivetran/Airbyte) carregando dados brutos para o BigQuery.
+  # Cria o dataset 'raw' com as 3 tabelas fonte antes do dbt iniciar.
+  raw-loader:
+    build:
+      context: .
+      dockerfile: docker/loader/Dockerfile
+    env_file: .env
+    environment:
+      DATA_DIR: /data/raw
+    volumes:
+      - ./credentials:/credentials:ro
+      - ./data/raw:/data/raw:ro
+
+  # --- Camada 2: Transformação dbt ---
+  # Executa o pipeline completo: dbt build = run + test.
+  # Só inicia após raw-loader concluir com sucesso.
+  dbt:
+    build:
+      context: .
+      dockerfile: docker/dbt/Dockerfile
+    env_file: .env
+    volumes:
+      - ./credentials:/credentials:ro
+    depends_on:
+      raw-loader:
+        condition: service_completed_successfully
+    # --full-refresh: necessário porque o raw-loader usa WRITE_TRUNCATE (recria raw a cada run).
+    # Remove e recria tabelas incrementais para ficarem em sync com os dados raw recarregados.
+    # Override com: docker-compose run --rm dbt run --select stg_transactions
+    command: build --full-refresh
