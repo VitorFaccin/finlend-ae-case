@@ -5,20 +5,22 @@ O Python executa este arquivo automaticamente antes de qualquer outro código.
 """
 import os
 import ssl
+import urllib3
+import requests
 
 os.environ["PYTHONHTTPSVERIFY"] = "0"
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
 try:
-    import urllib3
+    
     urllib3.disable_warnings()
 except ImportError:
     pass
 
 # dbt deps usa requests internamente — patch obrigatório para bypasear SSL no proxy corporativo
 try:
-    import requests
+    
     _original_send = requests.Session.send
     def _patched_send(self, *args, **kwargs):
         kwargs["verify"] = False

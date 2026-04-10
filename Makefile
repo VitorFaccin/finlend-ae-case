@@ -25,7 +25,7 @@ build:
 
 # Pipeline completo: raw → dbt build (run + test)
 up:
-	docker-compose up --build --abort-on-container-exit
+	docker-compose up --build
 
 # Apenas ingestão raw (sem dbt)
 seed:

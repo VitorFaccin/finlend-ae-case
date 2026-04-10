@@ -1,13 +1,8 @@
 #!/bin/bash
 set -e
 
-# Desabilita verificação SSL — necessário em redes corporativas com proxy/VPN
-# que re-assinam certificados. Feito aqui (runtime) porque PYTHONHTTPSVERIFY=0
-# não afeta a biblioteca requests usada pelo dbt deps.
-export PYTHONHTTPSVERIFY=0
-export REQUESTS_CA_BUNDLE=""
-export CURL_CA_BUNDLE=""
-export SSL_CERT_FILE=""
+# SSL desabilitado em sitecustomize.py (executado pelo Python antes de qualquer outro código).
+# Não duplicar aqui — REQUESTS_CA_BUNDLE="" causa comportamento inesperado no requests.
 
 # Gera profiles.yml a partir das variáveis de ambiente — sem credenciais no código.
 mkdir -p ~/.dbt

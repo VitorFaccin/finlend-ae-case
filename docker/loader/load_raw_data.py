@@ -13,6 +13,8 @@ import csv
 import os
 import ssl
 import urllib3
+import json
+import tempfile
 
 # Desabilita verificação SSL — necessário em redes corporativas com proxy/VPN
 # que re-assinam certificados (mesmo padrão do airflow_portfolio)
@@ -80,8 +82,7 @@ def load_settlements() -> None:
     Usa load_table_from_json (job de carga) em vez de insert_rows_json (streaming)
     porque streaming insert não está disponível no free tier do BigQuery.
     """
-    import json
-    import tempfile
+
 
     schema = [
         bigquery.SchemaField("settlement_id",      "STRING",    mode="REQUIRED"),
