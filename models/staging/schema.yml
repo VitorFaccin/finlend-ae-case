@@ -54,8 +54,7 @@ models:
         tests:
           - not_null
           - accepted_values:
-              arguments:
-                values: ['captured', 'refunded', 'chargeback', 'pending', 'failed', 'cancelled']
+              values: ['captured', 'refunded', 'chargeback', 'pending', 'failed', 'cancelled']
 
       - name: payment_method
         description: "Método de pagamento utilizado na transação"

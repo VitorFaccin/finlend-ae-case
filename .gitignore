@@ -3,9 +3,17 @@ gemini_talk_plan.txt
 best_practices.md
 *.pdf
 target/
-dbt_packages/
 logs/
 profiles.yml
 .env
 venv
 tutorial.md
+segunda_conversa_gemini.txt
+airflow_portfolio
+
+# Credenciais GCP — nunca commitar
+credentials/
+
+# Artefatos Docker
+.docker/
+.pytest_cache/
